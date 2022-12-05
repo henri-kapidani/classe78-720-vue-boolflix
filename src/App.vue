@@ -1,28 +1,114 @@
 <template>
-  <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div>
+    <HeaderPage @queryChange="search" />
+    <MainPage
+      :data-movies="dataMovies"
+      :data-tv="dataTv"
+      @changePage="changePage"
+    />
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue';
+import axios from 'axios';
+import Vue from 'vue';
+import HeaderPage from '@/components/HeaderPage.vue';
+import MainPage from '@/components/MainPage.vue';
 
 export default {
   name: 'App',
   components: {
-    HelloWorld,
+    HeaderPage,
+    MainPage,
+  },
+  data() {
+    return {
+      baseApiUrl: 'https://api.themoviedb.org/3',
+      apiKey: 'eddeb9cc139fc5540af4fe0bcd294c59',
+      resultsLanguage: 'it-IT',
+      dataMovies: null,
+      dataTv: null,
+      queryString: '',
+    };
+  },
+  methods: {
+    search(queryString) {
+      // chiamata axios all'url di ricerca
+      // BASE_URL + END_POINT + (QUERY_STRING)
+      this.queryString = queryString;
+
+      axios.get(`${this.baseApiUrl}/search/movie`, {
+        params: {
+          api_key: this.apiKey,
+          language: this.resultsLanguage,
+          query: queryString,
+        },
+      })
+        .then((responseAxios) => {
+          this.dataMovies = responseAxios.data;
+          responseAxios.data.results.forEach((objMovie) => {
+            axios.get(`${this.baseApiUrl}/movie/${objMovie.id}/credits`, {
+              params: {
+                api_key: this.apiKey,
+              },
+            })
+              .then((axiosResponse) => {
+                const movie = objMovie;
+                Vue.set(movie, 'cast', axiosResponse.data.cast.slice(0, 5).map((objActor) => objActor.name));
+              });
+          });
+        });
+
+      axios.get(`${this.baseApiUrl}/search/tv`, {
+        params: {
+          api_key: this.apiKey,
+          language: this.resultsLanguage,
+          query: queryString,
+        },
+      })
+        .then((responseAxios) => {
+          this.dataTv = responseAxios.data;
+        });
+    },
+    changePage(info) {
+      switch (info.type) {
+        case 'movie':
+          axios.get(`${this.baseApiUrl}/search/movie`, {
+            params: {
+              api_key: this.apiKey,
+              language: this.resultsLanguage,
+              query: this.queryString,
+              page: info.page,
+            },
+          })
+            .then((responseAxios) => {
+              this.dataMovies = responseAxios.data;
+            });
+          break;
+
+        case 'tv':
+          axios.get(`${this.baseApiUrl}/search/tv`, {
+            params: {
+              api_key: this.apiKey,
+              language: this.resultsLanguage,
+              query: this.queryString,
+              page: info.page,
+            },
+          })
+            .then((responseAxios) => {
+              this.dataTv = responseAxios.data;
+            });
+          break;
+
+        default:
+          break;
+      }
+    },
   },
 };
 </script>
 
 <style lang="scss">
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
+@import '@/assets/scss/reset';
+
 </style>
